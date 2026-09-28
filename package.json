@@ -1,0 +1,9 @@
+{
+  "name": "teeup-fetch",
+  "private": true,
+  "type": "module",
+  "description": "楽天GORAのプランを毎日取りに行く",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

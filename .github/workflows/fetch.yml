@@ -1,0 +1,71 @@
+name: プランを取り込む
+
+# 全国1,907コースを61日先まで見ると1日17時間かかる。
+# 1つの仕事は6時間で切れるので、コースを4つの組に分けて回す。
+#
+#   0  02:00  関東6県     526コース  4.7時間
+#   1  08:00  東日本      464コース  4.1時間
+#   2  13:00  中部近畿    508コース  4.6時間
+#   3  18:00  西日本      409コース  3.6時間
+#
+# 時刻はJST。cron はUTCで書く。
+on:
+  schedule:
+    - cron: '0 17 * * *'   # 02:00 JST
+    - cron: '0 23 * * *'   # 08:00 JST
+    - cron: '0 4 * * *'    # 13:00 JST
+    - cron: '0 9 * * *'    # 18:00 JST
+  workflow_dispatch:
+    inputs:
+      group:
+        description: 引く組（0〜3）
+        required: true
+        default: '0'
+      minutes:
+        description: 使ってよい分数
+        required: false
+        default: '280'
+
+# 楽天は1秒1件までしか受けない。2つ同時に走らせない
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 取り込む
+        run: npm install --no-audit --no-fund
+
+      - name: どの組を引くか決める
+        id: pick
+        run: |
+          # 手で回したときは指定どおり。定時のときは、鳴った cron から決める
+          case "${{ github.event.schedule }}" in
+            "0 17 * * *") g=0; m=320 ;;
+            "0 23 * * *") g=1; m=280 ;;
+            "0 4 * * *")  g=2; m=280 ;;
+            "0 9 * * *")  g=3; m=330 ;;
+            *) g="${{ inputs.group }}"; m="${{ inputs.minutes }}" ;;
+          esac
+          echo "group=$g" >> "$GITHUB_OUTPUT"
+          echo "minutes=$m" >> "$GITHUB_OUTPUT"
+
+      - name: 引く
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: node dayplans.mjs "${{ steps.pick.outputs.group }}" "${{ steps.pick.outputs.minutes }}"
