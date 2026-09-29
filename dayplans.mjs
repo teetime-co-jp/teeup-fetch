@@ -309,6 +309,23 @@ for (let i = startAt; i < courses.length; i++) {
    * 1日でも出れば公開している証拠。無いほうは6日以上聞いてから決める。
    * 人気のコースは土日が埋まるので、少ない日数では判断できない。
    */
+  /*
+   * そのコースにある種類を、日ごとの印から作り直す。
+   *
+   * プレースタイルの絞り込みはこれを見ている。ここで更新しないと、
+   * 日ごとのデータは全国ぶん入っているのに、絞り込みは最初に
+   * 手で作った6県ぶんのままになる。実際そうなっていた。
+   */
+  if (asked && seen) {
+    await q(`
+      update course c set plan_tags = s.tags
+      from (
+        select array_agg(distinct tag order by tag) as tags
+        from (select unnest(tags) as tag from day_plan where course = $1 and tags is not null) t
+      ) s
+      where c.id = $1 and s.tags is not null and c.plan_tags is distinct from s.tags`, [c.id])
+  }
+
   if (asked) {
     if (seen) {
       await q(`update course set plans_ok = true, plans_seen_at = now(),
