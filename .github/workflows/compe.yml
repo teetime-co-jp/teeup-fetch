@@ -1,0 +1,47 @@
+name: オープンコンペを拾う
+
+# 日ごとの取り込みは61日のうち23日しか見ていない。近い日を厚く見る
+# 配り方なので、31〜61日先は7日おきにしか当たらない。オープンコンペは
+# 単一日程の催しなので、当たらなかった日の開催はまるごと落ちる。
+#
+# こちらは日×地方で引くので、61日ぶん全部拾える。
+# 1日62日×8地方＝約1,400回。1回4.3秒で約100分。
+#
+# 18:10 JST に回す。中部近畿(14時)が18時ごろ終わり、西日本(20時)まで
+# 2時間空く。その隙間に入れる。
+on:
+  schedule:
+    - cron: '10 9 * * *'   # 18:10 JST
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 使ってよい分数
+        required: false
+        default: '110'
+
+# 楽天は1秒1件までしか受けない。日ごとの取り込みと同じ列に並ばせる
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  compe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 取り込む
+        run: npm install --no-audit --no-fund
+      - name: 引く
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: node compe.mjs "${{ inputs.minutes || '110' }}"
