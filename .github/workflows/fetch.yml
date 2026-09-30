@@ -45,7 +45,7 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 358
     steps:
       - uses: actions/checkout@v4
 
@@ -77,3 +77,21 @@ jobs:
           RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
           RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
         run: node dayplans.mjs "${{ steps.pick.outputs.group }}" "${{ steps.pick.outputs.minutes }}"
+
+      # オープンコンペは、余った時間で少しずつ進める。
+      #
+      # 別の定時実行にしたら、順番待ちのまま打ち切られた。同じ列に
+      # 並べられるのは「走っている1つ」と「待っている1つ」だけで、
+      # 3つ目が来ると待っているほうが消える。実際 245分待たされて
+      # 消えた。仕事を分けずに、後ろにくっつける。
+      #
+      # 1回25分×4回で1日100分。続きの位置を持っているので、
+      # 4回ぶんで62日を1巡する。
+      - name: オープンコンペを拾う
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: node compe.mjs 25
