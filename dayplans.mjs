@@ -164,6 +164,9 @@ const q = async (...a) => {
   }
 }
 
+/* 税別。楽天が basePrice（課税対象金額）を返すので、割り算で出さない */
+await q(`alter table plan_row add column if not exists base_price int`)
+
 const DATES = targetDates()
 /*
  * 「プランが無い」印がついたコースも、たまに見に行く。
@@ -280,21 +283,22 @@ for (let i = startAt; i < courses.length; i++) {
         Number(p.price) || null, String(p.startTimeZone ?? "").trim() || null,
         Number(p.callInfo?.stockStatus) || null, chipsOf(p), tagsOf(p),
         Number(p.playerNumMin) || null, Number(p.playerNumMax) || null,
+        Number(p.basePrice) || null,
       ])
     if (rowsIn.length) {
-      const W = 11
+      const W = 12
       const vals = rowsIn
         .map((_, i) => `(${Array.from({ length: W }, (_, k) => `$${i * W + k + 1}`).join(",")}, now())`)
         .join(",")
       await q(`
         insert into plan_row (course, play_date, plan_id, name, price, zone, stock,
-                              tags, flags, players_min, players_max, fetched_at)
+                              tags, flags, players_min, players_max, base_price, fetched_at)
         values ${vals}
         on conflict (course, play_date, plan_id) do update set
           name = excluded.name, price = excluded.price, zone = excluded.zone,
           stock = excluded.stock, tags = excluded.tags, flags = excluded.flags,
           players_min = excluded.players_min, players_max = excluded.players_max,
-          fetched_at = now()`, rowsIn.flat())
+          base_price = excluded.base_price, fetched_at = now()`, rowsIn.flat())
     }
     }).catch(() => { /* 1日ぶん落としても次の巡で拾う */ })
 

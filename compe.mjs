@@ -152,6 +152,10 @@ const q = async (...a) => {
 }
 
 await q(`alter table plan_row add column if not exists flags text[]`)
+/* 税別。楽天が basePrice（課税対象金額）を返すので、割り算で出さない */
+await q(`alter table plan_row add column if not exists base_price int`)
+await q(`comment on column plan_row.base_price is
+  'プラン料金の税抜き。price は税抜＋消費税＋ゴルフ場利用税＋その他の合計'`)
 
 /* 楽天のゴルフ場番号から、こちらのコースを引く */
 const { rows: known } = await q(`select id, gora_id from course where gora_id is not null`)
@@ -199,21 +203,22 @@ for (let i = startAt; i < DATES.length; i++) {
           Number(plan.price) || null, String(plan.startTimeZone ?? "").trim() || null,
           Number(plan.callInfo?.stockStatus) || null, chipsOf(plan), flagsOf(plan),
           Number(plan.playerNumMin) || null, Number(plan.playerNumMax) || null,
+          Number(plan.basePrice) || null,
         ])
       }
       if (rowsIn.length) {
-        const W = 11
+        const W = 12
         const vals = rowsIn
           .map((_, i) => `(${Array.from({ length: W }, (_, k) => `$${i * W + k + 1}`).join(",")}, now())`)
           .join(",")
         writing = writing.then(() => q(`
           insert into plan_row (course, play_date, plan_id, name, price, zone, stock,
-                                tags, flags, players_min, players_max, fetched_at)
+                                tags, flags, players_min, players_max, base_price, fetched_at)
           values ${vals}
           on conflict (course, play_date, plan_id) do update set
             name = excluded.name, price = excluded.price, zone = excluded.zone,
             stock = excluded.stock, tags = excluded.tags, flags = excluded.flags,
-            fetched_at = now()`, rowsIn.flat())).catch(() => { /* 次の巡で拾う */ })
+            base_price = excluded.base_price, fetched_at = now()`, rowsIn.flat())).catch(() => { /* 次の巡で拾う */ })
         wrote += rowsIn.length
       }
       await waited
