@@ -99,21 +99,6 @@ async function plans(goraId, playDate) {
   return null
 }
 
-/** 画面に出す短い印。除外の判定とは別に、見て分かるものを選ぶ */
-function chipsOf(p) {
-  const t = []
-  if (Number(p.lunch) > 0) t.push("昼食付き")
-  if (Number(p.cart) > 0) t.push("乗用カート")
-  if (Number(p.caddie) > 0) t.push("キャディ付き")
-  else if (Number(p.caddie) === 0) t.push("セルフ")
-  if (String(p.round ?? "") === "0.5R") t.push("9ホール")
-  if (Number(p.stay) > 0) t.push("宿泊付き")
-  if (Number(p.openCompe) > 0) t.push("オープンコンペ")
-  if (Number(p.playerNumMin) >= 3) t.push(`${p.playerNumMin}名以上`)
-  if (/スルー/.test(String(p.planName ?? ""))) t.push("スループレー")
-  return t.slice(0, 4)
-}
-
 /**
  * そのプランが何に当たるか。楽天GORAの絞り込みに名前を揃える。
  * 旗があるものは旗で、無いものは名前で見る。
@@ -281,22 +266,22 @@ for (let i = startAt; i < courses.length; i++) {
       .map((p) => [
         c.id, d, Number(p.planId), String(p.planName ?? "").trim() || "プラン",
         Number(p.price) || null, String(p.startTimeZone ?? "").trim() || null,
-        Number(p.callInfo?.stockStatus) || null, chipsOf(p), tagsOf(p),
+        Number(p.callInfo?.stockStatus) || null, tagsOf(p),
         Number(p.playerNumMin) || null, Number(p.playerNumMax) || null,
         Number(p.basePrice) || null,
       ])
     if (rowsIn.length) {
-      const W = 12
+      const W = 11
       const vals = rowsIn
         .map((_, i) => `(${Array.from({ length: W }, (_, k) => `$${i * W + k + 1}`).join(",")}, now())`)
         .join(",")
       await q(`
         insert into plan_row (course, play_date, plan_id, name, price, zone, stock,
-                              tags, flags, players_min, players_max, base_price, fetched_at)
+                              flags, players_min, players_max, base_price, fetched_at)
         values ${vals}
         on conflict (course, play_date, plan_id) do update set
           name = excluded.name, price = excluded.price, zone = excluded.zone,
-          stock = excluded.stock, tags = excluded.tags, flags = excluded.flags,
+          stock = excluded.stock, flags = excluded.flags,
           players_min = excluded.players_min, players_max = excluded.players_max,
           base_price = excluded.base_price, fetched_at = now()`, rowsIn.flat())
     }

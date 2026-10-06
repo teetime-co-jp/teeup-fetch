@@ -90,19 +90,6 @@ function flagsOf(p) {
   return t
 }
 
-function chipsOf(p) {
-  const t = []
-  if (Number(p.lunch) > 0) t.push("昼食付き")
-  if (Number(p.cart) > 0) t.push("乗用カート")
-  if (Number(p.caddie) > 0) t.push("キャディ付き")
-  else if (Number(p.caddie) === 0) t.push("セルフ")
-  if (String(p.round ?? "") === "0.5R") t.push("9ホール")
-  if (Number(p.stay) > 0) t.push("宿泊付き")
-  if (Number(p.openCompe) > 0) t.push("オープンコンペ")
-  if (Number(p.playerNumMin) >= 3) t.push(`${p.playerNumMin}名以上`)
-  return t.slice(0, 4)
-}
-
 /** その日・その地域のコンペ。ゴルフ場ごとにプランをまとめて返す */
 async function compe(codes, playDate, page) {
   const q = new URLSearchParams({
@@ -201,23 +188,23 @@ for (let i = startAt; i < DATES.length; i++) {
         rowsIn.push([
           course, d, id, String(plan.planName ?? "").trim() || "プラン",
           Number(plan.price) || null, String(plan.startTimeZone ?? "").trim() || null,
-          Number(plan.callInfo?.stockStatus) || null, chipsOf(plan), flagsOf(plan),
+          Number(plan.callInfo?.stockStatus) || null, flagsOf(plan),
           Number(plan.playerNumMin) || null, Number(plan.playerNumMax) || null,
           Number(plan.basePrice) || null,
         ])
       }
       if (rowsIn.length) {
-        const W = 12
+        const W = 11
         const vals = rowsIn
           .map((_, i) => `(${Array.from({ length: W }, (_, k) => `$${i * W + k + 1}`).join(",")}, now())`)
           .join(",")
         writing = writing.then(() => q(`
           insert into plan_row (course, play_date, plan_id, name, price, zone, stock,
-                                tags, flags, players_min, players_max, base_price, fetched_at)
+                                flags, players_min, players_max, base_price, fetched_at)
           values ${vals}
           on conflict (course, play_date, plan_id) do update set
             name = excluded.name, price = excluded.price, zone = excluded.zone,
-            stock = excluded.stock, tags = excluded.tags, flags = excluded.flags,
+            stock = excluded.stock, flags = excluded.flags,
             base_price = excluded.base_price, fetched_at = now()`, rowsIn.flat())).catch(() => { /* 次の巡で拾う */ })
         wrote += rowsIn.length
       }
