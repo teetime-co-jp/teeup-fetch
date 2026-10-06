@@ -87,6 +87,14 @@ jobs:
       #
       # 1回25分×4回で1日100分。続きの位置を持っているので、
       # 4回ぶんで62日を1巡する。
+      # 過ぎた日の行を片付ける。画面が見るのは今日から先だけ。
+      # 1回のDELETEで済むので、どの回でやっても負担にならない。
+      - name: 過ぎた日を片付ける
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node prune.mjs
+
       - name: オープンコンペを拾う
         if: always()
         env:
